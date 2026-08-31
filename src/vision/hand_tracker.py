@@ -1,11 +1,12 @@
 """MediaPipe hand tracking wrapper.
 
-Wraps ``mediapipe.solutions.hands`` behind a small, test-friendly interface
-and adds:
+Wraps the modern ``mediapipe.tasks.vision.HandLandmarker`` API behind a
+small, test-friendly interface and adds:
   * support for up to two hands simultaneously,
   * per-hand handedness (Left/Right) with a stable colour,
   * connectivity constants and a named-landmark reference so downstream
     gesture/geometry code never needs to hard-code landmark indices,
+  * automatic download + caching of the ``hand_landmarker.task`` model,
   * a run-on-background convenience via a thread-safe queue (see
     :class:`HandTrackerPipeline`).
 """
@@ -13,20 +14,36 @@ and adds:
 from __future__ import annotations
 
 import math
+import os
 import queue
 import threading
 from dataclasses import dataclass, field
+from pathlib import Path
+from urllib import request
 
 import numpy as np
 
 try:  # MediaPipe is a hard runtime dependency; import guarded for clarity.
     import mediapipe as mp
+    from mediapipe.tasks import python as _mp_python
+    from mediapipe.tasks.python import vision as _mp_vision
 except Exception:  # pragma: no cover - exercised only on exotic installs
     mp = None
+    _mp_python = None
+    _mp_vision = None
 
 from ..utils.logger import get_logger
 
 log = get_logger("vision.hand_tracker")
+
+# Official MediaPipe hand landmarker model (Tasks API).
+_HAND_MODEL_URL = (
+    "https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
+    "hand_landmarker/float16/1/hand_landmarker.task"
+)
+# Local cache location for the downloaded model.
+_DEFAULT_MODEL_DIR = Path(__file__).resolve().parents[2] / "assets" / "mediapipe"
+_DEFAULT_MODEL_PATH = _DEFAULT_MODEL_DIR / "hand_landmarker.task"
 
 
 # Landmark index constants (MediaPipe hand topology) — keep as module-level
@@ -154,12 +171,14 @@ class HandTracker:
         filter_min_cutoff: float = 1.0,
         filter_beta: float = 0.007,
         filter_d_cutoff: float = 1.0,
+        model_path: str | os.PathLike | None = None,
     ) -> None:
         self.max_num_hands = max_num_hands
         self._model = _create_hands_model(
             max_num_hands,
             min_detection_confidence,
             min_tracking_confidence,
+            model_path=model_path,
         )
         from .landmark_filter import LandmarkSmoother  # local import (pure module)
 
@@ -184,14 +203,17 @@ class HandTracker:
                 "MediaPipe is not installed. Run `pip install gestureforge[core]` "
                 "or install mediapipe to enable hand tracking."
             )
+        if _mp_vision is None:
+            raise RuntimeError("mediapipe.tasks.vision is unavailable.")
         rgb = cv2_cvt_bgr2rgb(frame_bgr)
-        results = self._model.process(rgb)
+        image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        results = self._model.detect(image)
         hands: list[Hand] = []
-        if results.multi_hand_landmarks is None:
+        if not results.hand_landmarks:
             self._smoothers.clear()
             return hands
 
-        for i, hand_landmarks in enumerate(results.multi_hand_landmarks):
+        for i, hand_landmarks in enumerate(results.hand_landmarks):
             hand = self._build_hand(hand_landmarks, results, i, timestamp)
             hands.append(hand)
 
@@ -208,7 +230,7 @@ class HandTracker:
 
         # Raw normalized coordinates.
         raw: list[tuple[float, float, float]] = [
-            (lm.x, lm.y, lm.z) for lm in hand_landmarks.landmark
+            (lm.x, lm.y, lm.z) for lm in hand_landmarks
         ]
 
         # One-Euro smooth the 3D coordinates.
@@ -247,25 +269,49 @@ def _create_hands_model(
     max_num_hands: int,
     min_detection_confidence: float,
     min_tracking_confidence: float,
+    model_path: str | os.PathLike | None = None,
 ):
-    """Construct the MediaPipe Hands model, returning ``None`` if unavailable."""
-    if mp is None:
+    """Construct the MediaPipe HandLandmarker, returning ``None`` if unavailable."""
+    if mp is None or _mp_vision is None:
         return None
-    return mp.solutions.hands.Hands(
-        static_image_mode=False,
-        max_num_hands=max_num_hands,
-        min_detection_confidence=min_detection_confidence,
+    path = Path(model_path) if model_path else _ensure_model()
+    base_options = _mp_python.BaseOptions(model_asset_path=str(path))
+    options = _mp_vision.HandLandmarkerOptions(
+        base_options=base_options,
+        running_mode=_mp_vision.RunningMode.IMAGE,
+        num_hands=max_num_hands,
+        min_hand_detection_confidence=min_detection_confidence,
+        min_hand_presence_confidence=min_detection_confidence,
         min_tracking_confidence=min_tracking_confidence,
     )
+    return _mp_vision.HandLandmarker.create_from_options(options)
+
+
+def _ensure_model() -> Path:
+    """Return the cached ``hand_landmarker.task``, downloading it if missing."""
+    _DEFAULT_MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    if _DEFAULT_MODEL_PATH.exists() and _DEFAULT_MODEL_PATH.stat().st_size > 0:
+        return _DEFAULT_MODEL_PATH
+    log.info("Downloading MediaPipe hand_landmarker model to %s", _DEFAULT_MODEL_PATH)
+    try:
+        request.urlretrieve(_HAND_MODEL_URL, str(_DEFAULT_MODEL_PATH))
+    except Exception:
+        _DEFAULT_MODEL_PATH.unlink(missing_ok=True)
+        raise
+    if _DEFAULT_MODEL_PATH.stat().st_size == 0:
+        _DEFAULT_MODEL_PATH.unlink(missing_ok=True)
+        raise RuntimeError("Downloaded hand_landmarker model is empty.")
+    return _DEFAULT_MODEL_PATH
 
 
 def _label_and_score(results, index: int) -> tuple[str, float]:
     """Extract handedness label + confidence from MediaPipe results, defensively."""
-    if results.multi_handedness is not None and index < len(results.multi_handedness):
-        classification = results.multi_handedness[index]
-        if classification and len(classification.classification):
-            entry = classification.classification[0]
-            return str(entry.label), float(entry.score)
+    handedness = getattr(results, "handedness", None)
+    if handedness is not None and index < len(handedness):
+        categories = handedness[index]
+        if categories:
+            top = categories[0]
+            return str(top.category_name), float(top.score)
     return "Unknown", 0.0
 
 

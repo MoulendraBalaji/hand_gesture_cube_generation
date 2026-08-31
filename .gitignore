@@ -21,6 +21,9 @@ dist/
 output/
 *.db
 
+# Auto-downloaded MediaPipe model (fetched on first run)
+assets/mediapipe/
+
 # OS / editor
 .DS_Store
 Thumbs.db

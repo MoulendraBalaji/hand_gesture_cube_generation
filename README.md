@@ -48,7 +48,7 @@ flowchart TB
     subgraph Input
         CAM[Webcam]
         KEY[Keyboard]
-        MIC[Microphone (optional)]
+        MIC["Microphone (optional)"]
     end
 
     subgraph Vision
