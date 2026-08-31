@@ -1,0 +1,134 @@
+# ============================================================================
+# GestureForge — default configuration
+# Everything tunable lives here, not hardcoded in source.
+# ============================================================================
+
+app:
+  name: "GestureForge"
+  fps_target: 30
+  mirror: true                       # flip the webcam feed like a mirror
+  window_title: "GestureForge — Touchless 3D Interaction Studio"
+  camera_downscale: 1.0              # render-scale factor for the HUD/canvas overlay
+
+camera:
+  index: 0
+  width: 1280
+  height: 720
+
+vision:
+  max_num_hands: 2
+  min_detection_confidence: 0.5
+  min_tracking_confidence: 0.5
+  # One-Euro filter tuning (production hand-tracking standard technique).
+  # Lower minCutoff / larger beta -> more aggressive smoothing (but more lag).
+  filter:
+    min_cutoff: 1.0
+    beta: 0.007
+    d_cutoff: 1.0
+
+# Adaptive, scale-invariant thresholds.
+# All distances are expressed as RATIOS of the current hand bounding-box size,
+# so behaviour is identical whether the user is near or far from the camera.
+calibration:
+  auto_on_first_run: true
+  reference_distance: 0.6            # meters; user should hold hand ~0.6m from cam
+  # Multiplier applied to mean hand span (in pixels) to convert to a metric Z.
+  # focal_length_px / hand_span_m is derived from the calibration sample.
+  hand_span_m: 0.19                  # average adult palm width, meters
+  pinch_ratio: 0.35                  # pinch when index-thumb dist / bbox < this
+  fist_ratio: 0.45                   # fist when avg finger spread / bbox < this
+  samples: 30                        # frames averaged during (re)calibration
+
+gestures:
+  # Combinations of recognizers that "activate" a gesture. rule + ml vote.
+  use_ml: true
+  ml_fallback_rule: true
+  # Confidence required from the ML classifier before it can cast a vote.
+  ml_min_confidence: 0.75
+  # Physical size of the "camera frame" used by analytics heatmaps.
+  hud_show_debug: true
+
+physics:
+  gravity: 9.8
+  damping: 0.85            # velocity retained on each collision bounce
+  restitution: 0.55        # bounce factor
+  air_resistance: 0.995    # per-frame velocity multiplier
+  floor: -3.0              # virtual floor plane (in world Y)
+  sphere_collision: true   # loose bounding-sphere collisions between objects
+
+renderer:
+  default: "opencv"        # opencv | opengl
+  cv:
+    mesh_color: [200, 110, 40]
+    edge_color: [255, 235, 200]
+    light_dir: [0.4, 0.8, 0.6]       # normalized light direction for Lambert shading
+    perspective_fov_deg: 60
+    near: 0.1
+    far: 100.0
+    camera_z: 6.0          # OpenCV renderer virtual camera distance
+  gl:
+    clear_color: [0.12, 0.12, 0.14, 1.0]
+
+air_draw:
+  canvas_color: [80, 200, 255]
+  line_width: 3
+  auto_save: true
+  save_dir: "output/drawings"
+
+voice:
+  enabled: false           # also gated by --voice flag
+  model_dir: "assets/voice/vosk-model-small-en-us"
+  sample_rate: 16000
+  continuous: true
+
+analytics:
+  database: "output/session.db"
+  csv_path: "output/session.csv"
+  report_dir: "output/reports"
+  heatmap_size: 32
+
+export:
+  obj_dir: "output/scenes"
+  default_filename: "scene.obj"
+
+macros:
+  save_dir: "output/macros"
+  default_name: "macro.json"
+
+# ---------------------------------------------------------------------------
+# Keyboard fallbacks (must always exist alongside gestures — demo reliability)
+# ---------------------------------------------------------------------------
+keys:
+  spawn: " "
+  grab: "g"
+  release: "esc"
+  scale_up: "+"
+  scale_down: "-"
+  rotate_y_plus: "]"
+  rotate_y_minus: "["
+  air_draw_toggle: "d"
+  undo: "ctrl+z"
+  redo: "ctrl+y"
+  save_report: "s"
+  calibrate: "c"
+  cycle_primitive: "tab"
+  record_macro: "r"
+  replay_macro: "p"
+  toggle_help: "h"
+  toggle_debug: "f"
+  clear_scene: "x"
+  quit: "q"
+
+# Gesture bindings -> action names (used by both gesture engine and HUD table)
+actions:
+  spawn: "spawn"
+  grab: "grab"
+  release: "release"
+  scale: "scale"
+  rotate: "rotate"
+  air_draw: "air_draw"
+  undo: "undo"
+  redo: "redo"
+  save_report: "save_report"
+  calibrate: "calibrate"
+  cycle_primitive: "cycle"

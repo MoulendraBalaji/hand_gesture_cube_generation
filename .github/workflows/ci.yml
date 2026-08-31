@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-test:
+    name: lint + test (non-GUI)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install core + dev + ml + report deps
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev,ml,report]"
+
+      - name: Lint with ruff
+        run: ruff check src/ tests/ main.py
+
+      - name: Run the non-GUI test suite
+        # CI has no camera/display; the suite only touches camera-free modules.
+        run: python -m pytest tests/ -q
+
+      - name: Headless smoke test (CLI)
+        run: python main.py --headless-log-only

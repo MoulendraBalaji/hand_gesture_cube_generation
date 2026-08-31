@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gestureforge"
+version = "0.1.0"
+description = "Real-time, gesture-controlled 3D scene editor driven entirely from a webcam (no browser)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Moulendra Balaji" }]
+keywords = ["computer-vision", "mediapipe", "opencv", "gesture", "3d", "webcam"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics :: 3D Rendering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# Core dependencies (kept minimal so the app installs quickly).
+dependencies = [
+    "numpy>=1.24",
+    "opencv-python>=4.8",
+    "mediapipe>=0.10",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+# Trained gesture classifier (RandomForest)
+ml = ["scikit-learn>=1.3"]
+# Offline speech commands
+voice = ["vosk>=0.3.45", "pyaudio>=0.2.12"]
+# Accelerated OpenGL renderer backend
+opengl = ["PyOpenGL>=3.1", "glfw>=2.6"]
+# Session PDF reports
+report = ["matplotlib>=3.7", "fpdf2>=2.7"]
+# Development / CI
+dev = [
+    "pytest>=7.4",
+    "ruff>=0.4",
+    "scikit-learn>=1.3",
+    "matplotlib>=3.7",
+]
+
+[tool.setuptools]
+packages = [
+    "src",
+    "src.analytics",
+    "src.gestures",
+    "src.render",
+    "src.scene",
+    "src.ui",
+    "src.utils",
+    "src.vision",
+    "src.voice",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+ignore = ["E501", "E203"]

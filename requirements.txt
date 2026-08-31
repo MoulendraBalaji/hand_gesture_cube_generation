@@ -1,0 +1,15 @@
+# Core runtime dependencies for GestureForge.
+# Install from the repo root with:
+#   pip install -r requirements.txt
+# For optional extras see pyproject.toml ([project.optional-dependencies]).
+
+numpy>=1.24
+opencv-python>=4.8
+mediapipe>=0.10
+PyYAML>=6.0
+
+# Optional extras (installed via pyproject extras, not required for core):
+#   [ml]      scikit-learn          (trained gesture classifier)
+#   [voice]   vosk pyaudio          (offline speech commands)
+#   [opengl]  PyOpenGL glfw         (accelerated renderer backend)
+#   [report]  matplotlib fpdf2      (session PDF reports)
