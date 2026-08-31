@@ -9,6 +9,7 @@ keys so the CLI can always win at runtime.
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 
@@ -68,7 +69,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[gestureforge] ERROR: {exc}", file=sys.stderr)
         return 2
 
-    setup_logger(level="INFO")
+    setup_logger(level=logging.INFO)
     from src.utils.logger import get_logger
 
     log = get_logger("main")

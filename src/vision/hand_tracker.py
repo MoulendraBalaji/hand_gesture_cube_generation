@@ -203,7 +203,7 @@ class HandTracker:
                 "MediaPipe is not installed. Run `pip install gestureforge[core]` "
                 "or install mediapipe to enable hand tracking."
             )
-        if _mp_vision is None:
+        if mp is None or _mp_vision is None:
             raise RuntimeError("mediapipe.tasks.vision is unavailable.")
         rgb = cv2_cvt_bgr2rgb(frame_bgr)
         image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
@@ -272,7 +272,7 @@ def _create_hands_model(
     model_path: str | os.PathLike | None = None,
 ):
     """Construct the MediaPipe HandLandmarker, returning ``None`` if unavailable."""
-    if mp is None or _mp_vision is None:
+    if mp is None or _mp_python is None or _mp_vision is None:
         return None
     path = Path(model_path) if model_path else _ensure_model()
     base_options = _mp_python.BaseOptions(model_asset_path=str(path))
